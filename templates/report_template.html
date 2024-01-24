@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ name }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .header {
+            text-align: center;
+            color: #333;
+        }
+        .content {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{{ name }}</h1>
+        <p>Calculation: {{ calculation }}</p>
+    </div>
+    <div class="content">
+        {{ content | safe }}
+    </div>
+</body>
+</html>

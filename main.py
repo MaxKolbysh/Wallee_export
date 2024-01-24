@@ -1,12 +1,17 @@
-from fastapi import FastAPI, Request, Response, status, HTTPException
-from typing import List, Optional
-from pydantic import BaseModel, HttpUrl
-from fastapi.responses import JSONResponse, StreamingResponse
-from xhtml2pdf import pisa 
-from io import BytesIO
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
+from weasyprint import HTML
+from pydantic import BaseModel
+import io
+from jinja2 import Environment, FileSystemLoader, select_autoescape
+
 
 app = FastAPI()
 
+env = Environment(
+    loader=FileSystemLoader('templates'),
+    autoescape=select_autoescape(['html', 'xml'])
+)
 
 @app.get("/")
 async def root():
@@ -24,6 +29,7 @@ async def root():
 class QuantityAttributes(BaseModel):
     name: str
     calculation: str
+    content: str
 
 # class DataTableValues(BaseModel):
 #     values: List[str]
@@ -48,29 +54,18 @@ class QuantityAttributes(BaseModel):
 #     walls: List[Wall]   
 
 @app.post("/pdf")
-async def generate_pdf_post(pdf_data: QuantityAttributes):
-  # Create an HTML template
-  template = """
-  <!DOCTYPE html>
-  <html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <title>Quantity Attributes</title>
-  </head>
-  <body>
-    <h1>Quantity Attributes</h1>
-    <p>Quantity Name: {{ item.name }}</p>
-    <p>Quantity Calculation: {{ item.calculation }}</p>
-  </body>
-  </html>
-  """
+async def generate_pdf(attributes: QuantityAttributes):
+    #
+    # We will add jinja
+    template = env.get_template('report_template.html')
+    html_content = template.render(
+        name=attributes.name,
+        calculation=attributes.calculation,
+        content=attributes.content
+    )
 
-  # Load the JSON data into a dictionary
-  item = pdf_data.dict()
+    # pdf gen
+    pdf = HTML(string=html_content).write_pdf()
 
-  # Render the HTML to bytes
-  bytes_io = BytesIO()
-  pisa.CreatePDF(template.render(item), bytes_io)
-  response = StreamingResponse(bytes_io, media_type="application/pdf")
-  response.headers["Content-Disposition"] = "inline; filename=quantity_attributes.pdf"
-  return response
+    # run stream
+    return StreamingResponse(io.BytesIO(pdf), media_type="application/pdf")
