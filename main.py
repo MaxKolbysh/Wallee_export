@@ -4,6 +4,9 @@ from weasyprint import HTML
 from pydantic import BaseModel
 import io
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+import csv
+from lxml import etree
+
 
 
 app = FastAPI()
@@ -69,3 +72,40 @@ async def generate_pdf(attributes: QuantityAttributes):
 
     # run stream
     return StreamingResponse(io.BytesIO(pdf), media_type="application/pdf")
+
+
+@app.post("/csv")
+async def generate_csv(attributes: QuantityAttributes):
+    # Create a CSV in memory
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # Columns
+    writer.writerow(['name', 'calculation', 'content'])
+
+    # SOme data
+    writer.writerow([attributes.name, attributes.calculation, attributes.content])
+
+    # beginning
+    output.seek(0)
+
+    # Stream
+    return StreamingResponse(io.StringIO(output.getvalue()), media_type="text/csv")
+
+
+@app.post("/xml")
+async def generate_xml(attributes: QuantityAttributes):
+    # Create an XML root element
+    root = etree.Element("Attributes")
+    etree.SubElement(root, "Name").text = attributes.name
+    etree.SubElement(root, "Calculation").text = attributes.calculation
+
+    content_element = etree.SubElement(root, "Content")
+    content_element.text = etree.CDATA(attributes.content)
+
+    # Convert the XML element to a string
+    def xml_stream():
+        yield etree.tostring(root, pretty_print=True, xml_declaration=True, encoding='UTF-8')
+
+    # Stream
+    return StreamingResponse(xml_stream(), media_type="application/xml")
